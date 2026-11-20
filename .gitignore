@@ -1,7 +1,3 @@
-amaranth/Modules/Register_Bank/regbank.py
-amaranth/tools/elf2hex.py
-amaranth/env.sh
-amaranth/tools/riscv_assembler.py
 Amaranth Guide.pdf
 *.autosave.xopp
 
@@ -9,18 +5,14 @@ Amaranth Guide.pdf
 __pycache__/
 *.py[cod]
 
-# --- Simulation waveforms / compiled sim binaries ---
+# --- Simulation waveforms ---
 *.vcd
 *.surf.ron
-mvp-0/modules/sim/*/*_sim
 
-# --- Quartus Prime build output ---
-mvp-0/db/
-mvp-0/incremental_db/
-mvp-0/greybox_tmp/
-mvp-0/output_files/
-mvp-0/simulation/
-mvp-0/*.qws
 
 # --- Editor backups ---
 *.bak
+*.gtkw
+
+# --- Amaranth build output ---
+build/

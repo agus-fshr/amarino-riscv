@@ -45,6 +45,9 @@ class decode_reg_addr(wiring.Signature):
             "rs2_addr": Out(5),
             "rd_addr": Out(5)
         })
+    
+    def __eq__(self, other):
+        return self.members == other.members
         
 class operand_b_alu(wiring.Signature):
     def __init__(self):
@@ -130,3 +133,55 @@ class pc_update(wiring.Signature):
     
     def __eq__(self, other):
         return self.members == other.members
+
+class branch_flags(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "beq": Out(1),
+            "bne": Out(1),
+            "blt": Out(1),
+            "bge": Out(1),
+            "bltu": Out(1),
+            "bgeu": Out(1)
+        })
+    
+    def __eq__(self, other):
+        return self.members == other.members
+
+class data_uart(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "data" : Out(32)
+        })
+    
+    def __eq__(self, other):
+        return self.members == other.members
+
+class start_uart(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "start" : Out(1)
+        })
+    
+    def __eq__(self, other):
+        return self.members == other.members
+
+class tx_uart(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "tx" : Out(1)
+        })
+    
+    def __eq__(self, other):
+        return self.members == other.members
+
+class ready_uart(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "ready" : Out(1)
+        })
+    
+    def __eq__(self, other):
+        return self.members == other.members
+            
+            

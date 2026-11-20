@@ -13,14 +13,29 @@ $ export YOSYS=yowasp-yosys
 $ export VIVADO=/path/to/vivado
 ```
 
-To generate the bitstream and verilog code for the top-level module just run the `top.py` file as you would any python script.
+To generate the bitstream and verilog code for the top-level module, run it as a module from the repo root:
+
+```bash
+$ python -m amarino.top
+```
 
 ## Find your way around the code
-The top level module is in `top.py`. You'll find each module for the processor is in a seperate Python file and declared as a class inherting from `wiring.Component`. This is so that all interfaces between modules can be defined in `bus_signatures.py` and then connected explicitly in `top.py`. Everything runs on the Artix 7's default 100MHz clock. That is called automatically from the top level module since the `ArtyA7_100Platform` is set as the platform for building.
+```
+amarino/
+  top.py                 top-level wiring and build entry point
+  top_decoderblock.py    partial top (fetch + decode + imm/addr builders) for isolated testing
+  bus_signatures.py      every inter-module interface (wiring.Signature)
+  modules/               datapath blocks: alu, decoder, fetch, immbuilder, opbuilder,
+                         addrbuilder_jmpctrl, regbank, uart, ram, clockWorks
+  pipeline/              pipeline controller and the decode/execute/retire latches
+tests/                   Amaranth-simulator testbenches (test_*.py)
+tools/                   riscv_assemble.py, a small RV32I assembler
+docs/                    block diagram, assignment PDF, design notes
+```
 
-The `mvp-0` holds a more basic, single-stage implenentation.
+The top level module is in `amarino/top.py`. Each module for the processor is in a separate Python file declared as a class inheriting from `wiring.Component`. This is so that all interfaces between modules can be defined in `bus_signatures.py` and then connected explicitly in `top.py`. Everything runs on the Artix 7's default 100MHz clock. That is called automatically from the top level module since the `ArtyA7_100Platform` is set as the platform for building.
 
-Many modules and versions of the processor have their testbenches. These are ran in Amaranth's own simulator, although it would not be hard to automate them and create a more robust testing environment with PyTest and Cocotb. They all output `.vcd` files, some of which have a corresponding setup file for [Surfer](https://surfer-project.org/) which we strongly recommend as a waveform viewer since, among other great features, it can interpret signals as RV32 instructions.
+Many modules have testbenches in `tests/`. Run them from the repo root, e.g. `python -m tests.test_decoder`. They run in Amaranth's own simulator, although it would not be hard to automate them and create a more robust testing environment with PyTest and Cocotb. They output `.vcd` files into the current directory (git-ignored), which you can open in [Surfer](https://surfer-project.org/) which we strongly recommend as a waveform viewer since, among other great features, it can interpret signals as RV32 instructions.
 
 ## Exploring Block Diagrams
 When you build the top module (or any module, for that matter) with the `do_build=True` option in Amaranth and the platform as any `XilinxPlatform` you'll find the Vivado project file (.xpr) in `build/`. You can open this in Vivado and run all the RTL, Synthesis, Timing Reports, etc... The schematic view is particularly interesing as it will show every connection before being optimized. You'll be able to see every module we coded in Amaranth as a block and then click on it to expand and see how the internal logic is made up.

@@ -185,3 +185,11 @@ class ready_uart(wiring.Signature):
         return self.members == other.members
             
             
+
+
+class imem_bus(wiring.Signature):
+    def __init__(self):
+        super().__init__({
+            "addr": Out(32),    # word address, driven by fetch
+            "rdata": In(32)     # instruction word, one cycle after addr
+        })

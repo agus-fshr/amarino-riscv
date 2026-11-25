@@ -6,7 +6,7 @@ from amaranth_boards.arty_a7 import ArtyA7_100Platform
 from amarino.modules.regbank import RegBank
 from amarino.modules.alu import ALU
 from amarino.modules.decoder import Decoder
-from amarino.modules.fetch import Fetch
+from amarino.modules.fetch import Fetch, ExternalImemFetch
 from amarino.modules.opbuilder import opBuilder
 from amarino.modules.immbuilder import Immbuilder
 from amarino.modules.uart import UART32
@@ -15,11 +15,25 @@ from amarino.pipeline.decode_latch import Decode_latch
 from amarino.pipeline.execute_latch import Execute_latch
 from amarino.pipeline.retire_latch import Retire_latch
 from amarino.pipeline.pipeline import Pipeline
+from amarino.rvfi import RvfiMonitor, rvfi_signature
+from amarino.bus_signatures import imem_bus
 # from amarino.modules.clockWorks import Clockworks
 
 class Top (Elaboratable):
-    def __init__(self):
+    def __init__(self, imem="internal"):
         super().__init__()
+        assert imem in ("internal", "external")
+        self.imem = imem
+        # Verification ports (see docs/rvfi.md). Unused by the FPGA build.
+        self.rvfi = rvfi_signature().create(path=("rvfi",))
+        self.ibus = imem_bus().create(path=("ibus",)) if imem == "external" else None
+
+    def ports(self):
+        """Top-level ports for Verilog export: RVFI, plus the instruction bus in external mode."""
+        sigs = [value for _, _, value in rvfi_signature().flatten(self.rvfi)]
+        if self.ibus is not None:
+            sigs += [value for _, _, value in imem_bus().flatten(self.ibus)]
+        return sigs
 
     def elaborate(self, platform):
         m = Module()
@@ -30,7 +44,7 @@ class Top (Elaboratable):
         m.submodules.retire_latch = retire_latch = Retire_latch()
         m.submodules.alu = alu = ALU()
         m.submodules.decoder = decoder = Decoder()
-        m.submodules.fetch = fetch = Fetch()
+        m.submodules.fetch = fetch = ExternalImemFetch() if self.imem == "external" else Fetch()
         m.submodules.opbuilder = opbuilder = opBuilder()
         m.submodules.imm_builder = imm_builder = Immbuilder()
         m.submodules.addr_builder = addr_builder = Addrbuilder()
@@ -150,6 +164,28 @@ class Top (Elaboratable):
 
         # UART outputs
         connect(m, uart.ready, pipeline.uart_ready)
+
+        # Instruction bus (external instruction memory mode only)
+        if self.ibus is not None:
+            connect(m, fetch.ibus, wiring.flipped(self.ibus))
+
+        # RVFI trace port: observes only, drives nothing in the core
+        m.submodules.rvfi = rvfi = RvfiMonitor()
+        m.d.comb += [
+            rvfi.fetch_addr.eq(fetch.pc.pc),
+            rvfi.fetch_insn.eq(fetch.instr.instr),
+            rvfi.fetch_valid.eq(~fetch.resetn & fetch.enable),
+            rvfi.decode_enable.eq(decode_latch.decode_enable),
+            rvfi.decode_mux.eq(decode_latch.decode_mux),
+            rvfi.execute_enable.eq(execute_latch.enable),
+            rvfi.execute_mux.eq(execute_latch.mux),
+            rvfi.rs1_rdata.eq(execute_latch.reg_data_out.rs1_data),
+            rvfi.rs2_rdata.eq(execute_latch.reg_data_out.rs2_data),
+            rvfi.wb_we.eq(regbank.we),
+            rvfi.wb_rd.eq(regbank.reg_addr.rd_addr),
+            rvfi.wb_data.eq(regbank.rd_bus.rd_data),
+        ]
+        connect(m, rvfi.rvfi, wiring.flipped(self.rvfi))
 
         return m
     

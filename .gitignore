@@ -16,3 +16,8 @@ __pycache__/
 
 # --- Amaranth build output ---
 build/
+
+# --- Virtual environment / harness tools ---
+.venv/
+.tools/
+harness-out/

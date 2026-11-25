@@ -36,7 +36,7 @@ different kind.
 
 | gate | what it checks |
 |---|---|
-| 1 | Elaboration and lint. For Top (both instruction-memory modes) and every module class in its hierarchy: elaboration without exceptions or Python warnings, conversion to a netlist (catches combinational cycles and driver conflicts), yosys `check`, and `verilator --lint-only -Wall` (codegen-only codes waived in `gate1_lint/verilator_waivers.toml`, each with a reason). Also checks that every submodule input port is driven by Top. |
+| 1 | Elaboration and lint. For Top (both instruction-memory modes) and every module class in its hierarchy: elaboration without exceptions or Python warnings, conversion to a netlist (catches combinational cycles and driver conflicts), yosys `check`, and `verilator --lint-only -Wall` (codegen-only codes waived in `gate1_lint/verilator_waivers.toml`, each with a reason). Also checks that every submodule input port is driven by Top, and that only Top declares clock domains. |
 
 ## Tools
 

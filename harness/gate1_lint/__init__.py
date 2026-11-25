@@ -17,6 +17,7 @@ appears in Top's hierarchy, each elaborated on its own. Per target:
 and, on Top only:
 
   g1.port.<instance>.<port>         every input port of every submodule is driven by Top
+  g1.domain.<instance>.<domain>     a submodule declares its own clock domain
 
 Problem and warning checks exist only when the problem occurs. Gate 1 always runs in
 full, so the runner flags an expected failure whose problem has gone away as STALE.
@@ -136,6 +137,25 @@ def _port_checks(imem, frag):
     return checks
 
 
+def _domain_checks(frag):
+    """Clock domains must be declared by Top only. A submodule that declares its own
+    `sync` gets silently renamed by Amaranth (e.g. to `alu_sync`), so its sequential
+    logic would run on a clock nobody drives."""
+    checks = []
+
+    def walk(f, path):
+        for sub, name, _ in f.subfragments:
+            sub_path = f"{path}.{name}" if path else str(name)
+            for dname, domain in sub.domains.items():
+                if not domain.local:
+                    checks.append(Check(f"g1.domain.{sub_path}.{dname}", False,
+                                        f"{sub_path} declares clock domain {dname!r}; declare domains in Top only"))
+            walk(sub, sub_path)
+
+    walk(frag, "")
+    return checks
+
+
 def _merge(checks):
     """The same check id from both imem modes: a failure wins."""
     merged = {}
@@ -185,6 +205,7 @@ def run(ctx):
             continue
         _hierarchy_classes(frag, classes)
         checks += _port_checks(imem, frag)
+        checks += _domain_checks(frag)
     checks = _merge(checks)
     targets = [(f"top-{imem}", lambda imem=imem: design.new_top(imem)) for imem in ("internal", "external")]
     targets += sorted(classes.items())

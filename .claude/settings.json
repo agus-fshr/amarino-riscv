@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/harness/**)",
+      "Edit(/docs/rvfi.md)",
+      "Edit(/amarino/rvfi.py)",
+      "Edit(/tools/setup_harness_tools.sh)",
+      "Edit(/.github/**)",
+      "Edit(/.claude/**)",
+      "Edit(/CLAUDE.md)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/protect_harness.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

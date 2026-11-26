@@ -18,6 +18,7 @@ GATES = {
     1: "harness.gate1_lint",
     2: "harness.gate2_cosim",
     3: "harness.gate3_formal",
+    4: "harness.gate4_bench",
 }
 
 DEFAULT_SEED = 0xA5A5_2026

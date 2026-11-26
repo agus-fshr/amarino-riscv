@@ -1,5 +1,5 @@
 from amaranth import *
-from amarino.bus_signatures import fetch_decode, fetch_operand_b, pc_update
+from amarino.bus_signatures import fetch_decode, fetch_operand_b, pc_update, imem_bus
 from amaranth.lib import wiring
 from amaranth.lib.wiring import In, Out
 # remember to do platform imports here 
@@ -13,6 +13,8 @@ class Fetch(wiring.Component):
     resetn : In(1)
     pc_update : In(pc_update())
     enable : In(1)
+
+    external_imem = False   # see ExternalImemFetch
 
     def elaborate(self, platform):
         m = Module()
@@ -55,24 +57,39 @@ class Fetch(wiring.Component):
             0x00a0006f     # jal x0,10    17
         ]
 
-        # 256-word 32-bit wide instr mem
-        mem = Memory(width=32, depth=256, init=program +
-        [0b0000000_00000_00001_000_00000_0000000]*(256-len(program)),
-        attrs={"ram_style": "block"}) # NOP pad the rest
+        if self.external_imem:
+            # Instruction memory lives outside the core (simulation/formal).
+            m.d.comb += self.ibus.addr.eq(self.pc.pc)
+            rdata = self.ibus.rdata
+        else:
+            # 256-word 32-bit wide instr mem
+            mem = Memory(width=32, depth=256, init=program +
+            [0b0000000_00000_00001_000_00000_0000000]*(256-len(program)),
+            attrs={"ram_style": "block"}) # NOP pad the rest
 
 
-        rdport = mem.read_port()
-        m.submodules.rdport = rdport
+            rdport = mem.read_port()
+            m.submodules.rdport = rdport
+            m.d.comb += rdport.addr.eq(self.pc.pc)
+            rdata = rdport.data
 
         with m.If(~self.resetn & self.enable):
             m.d.comb += [
                 self.pc.pc.eq(self.pc_update.pc),        
-                self.instr.instr.eq(rdport.data)
+                self.instr.instr.eq(rdata)
             ]
         
         # with m.Elif(~self.enable):
         #     m.d.comb += self.pc.pc.eq(self.pc.pc)
 
-        m.d.comb += rdport.addr.eq(self.pc.pc)
-
         return m
+
+
+class ExternalImemFetch(Fetch):
+    """Fetch with the instruction memory outside the core.
+
+    Synchronous-read contract, same as the internal memory: ibus.rdata in cycle
+    t+1 must be the word at ibus.addr (a word address) in cycle t.
+    """
+    ibus: Out(imem_bus())
+    external_imem = True

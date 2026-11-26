@@ -1,0 +1,149 @@
+// Sail configuration override for gate 2: plain RV32I, M-mode only.
+// Applied with `sail_riscv_sim --rv32 --config-override <this file>` on top of Sail 0.16's
+// default RV32 configuration (`--rv32 --print-default-config`). The gate checks that
+// `--print-isa-string` reports rv32i with no other extension (g2.selftest.sail-isa).
+// Not overridden, on purpose:
+//   - memory regions / reset values: main memory at 0x80000000 matches spec/platform.toml;
+//   - misaligned load/store handling: the harness's generators never emit misaligned
+//     accesses, and gate2_cosim/sail.py refuses (harness ERROR) to translate one into RVFI.
+{
+  "base": {
+    // Required by Sail's validator once F, V and S are off: mstatus.FS/VS read-only zero.
+    "mstatus": { "fs_legal_states": "ExtContext_Off", "vs_legal_states": "ExtContext_Off" },
+    // Required by the validator once Sscofpmf is off (mhpmevent is at most 32 bits on RV32).
+    "hpmevent_width_bits": 32
+  },
+  // Required by the validator once Sv32 is off (no physical addresses beyond 32 bits).
+  "memory": { "physaddr_bits": 32 },
+  "extensions": {
+    // C (compressed). With C, jump/branch targets only need 2-byte alignment; plain RV32I
+    // requires 4-byte alignment and raises instruction-address-misaligned otherwise.
+    // Sail derives C from Zca (+Zcf/Zcd); all compressed extensions are off.
+    "Zca": {"supported": false},
+    "Zcb": {"supported": false},
+    "Zcd": {"supported": false},
+    "Zcf": {"supported": false},
+    "Zcmop": {"supported": false},
+    // Every other unprivileged extension: their encodings are reserved in RV32I and must
+    // raise illegal-instruction instead of executing.
+    "M": {"supported": false},
+    "Zmmul": {"supported": false},
+    "A": {"supported": false},
+    "Zaamo": {"supported": false},
+    "Zalrsc": {"supported": false},
+    "Zabha": {"supported": false},
+    "Zacas": {"supported": false},
+    "Zama16b": {"supported": false},
+    "Zawrs": {"supported": false},
+    "F": {"supported": false},
+    "D": {"supported": false},
+    "Zfa": {"supported": false},
+    "Zfbfmin": {"supported": false},
+    "Zfh": {"supported": false},
+    "Zfhmin": {"supported": false},
+    "Zfinx": {"supported": false},
+    "Zdinx": {"supported": false},
+    "Zhinx": {"supported": false},
+    "Zhinxmin": {"supported": false},
+    "V": {"support_level": "Disabled"},
+    "B": {"supported": false},
+    "Zba": {"supported": false},
+    "Zbb": {"supported": false},
+    "Zbc": {"supported": false},
+    "Zbs": {"supported": false},
+    "Zbkb": {"supported": false},
+    "Zbkc": {"supported": false},
+    "Zbkx": {"supported": false},
+    "Zknd": {"supported": false},
+    "Zkne": {"supported": false},
+    "Zknh": {"supported": false},
+    "Zkr": {"supported": false},
+    "Zksed": {"supported": false},
+    "Zksh": {"supported": false},
+    "Zkt": {"supported": false},
+    "Zvabd": {"supported": false},
+    "Zvbb": {"supported": false},
+    "Zvbc": {"supported": false},
+    "Zvfbfmin": {"supported": false},
+    "Zvfbfwma": {"supported": false},
+    "Zvfh": {"supported": false},
+    "Zvfhmin": {"supported": false},
+    "Zvkb": {"supported": false},
+    "Zvkg": {"supported": false},
+    "Zvkned": {"supported": false},
+    "Zvknha": {"supported": false},
+    "Zvknhb": {"supported": false},
+    "Zvksed": {"supported": false},
+    "Zvksh": {"supported": false},
+    "Zvkt": {"supported": false},
+    "Zibi": {"supported": false},
+    "Zicond": {"supported": false},
+    "Zimop": {"supported": false},
+    "Zicfilp": {"supported": false},
+    "Zicfiss": {"supported": false},
+    "Zilx": {"supported": false},
+    "Zicbom": {"supported": false},
+    "Zicbop": {"supported": false},
+    "Zicboz": {"supported": false},
+    // Zicsr, Zicntr, Zihpm, Zifencei are not part of RV32I (they are separate extensions
+    // since spec 20191213), and the core implements none of them. With them off, CSR
+    // instructions and fence.i raise illegal-instruction in the reference.
+    "Zicsr": {"supported": false},
+    "Zicntr": {"supported": false},
+    "Zihpm": {"supported": false},
+    "Zifencei": {"supported": false},
+    // Hints in RV32I encoding space (they execute as their base instruction either way);
+    // off so the reference is plain RV32I.
+    "Zihintntl": {"supported": false},
+    "Zihintpause": {"supported": false},
+    // Memory-system and PMA profile names; they only describe behaviour and do not change
+    // RV32I results here, but are off so the ISA string is plain rv32i.
+    "Zic64b": {"supported": false},
+    "Ziccamoa": {"supported": false},
+    "Ziccamoc": {"supported": false},
+    "Ziccif": {"supported": false},
+    "Zicclsm": {"supported": false},
+    "Ziccrse": {"supported": false},
+    // Privileged extensions: the platform is M-mode only with no virtual memory, debug
+    // triggers, counters or timers (S, U, H and everything that depends on them).
+    "S": {"supported": false},
+    "U": {"supported": false},
+    "H": {"supported": false},
+    "Sdtrig": {"supported": false},
+    "Sha": {"supported": false},
+    "Shcounterenw": {"supported": false},
+    "Shgatpa": {"supported": false},
+    "Shtvala": {"supported": false},
+    "Shvsatpa": {"supported": false},
+    "Shvstvala": {"supported": false},
+    "Shvstvecd": {"supported": false},
+    "Smcntrpmf": {"supported": false},
+    "Smdbltrp": {"supported": false},
+    "Smmpm": {"supported": false},
+    "Smnpm": {"supported": false},
+    "Ssccptr": {"supported": false},
+    "Sscofpmf": {"supported": false},
+    "Sscounterenw": {"supported": false},
+    "Ssdbltrp": {"supported": false},
+    "Ssnpm": {"supported": false},
+    "Ssqosid": {"supported": false},
+    "Ssstrict": {"supported": false},
+    "Sstc": {"supported": false},
+    "Sstvala": {"supported": false},
+    "Sstvecd": {"supported": false},
+    "Stateen": {"Smstateen": {"supported": false}, "Ssstateen": {"supported": false}},
+    "Sv32": {"supported": false},
+    "Sv39": {"supported": false},
+    "Sv48": {"supported": false},
+    "Sv57": {"supported": false},
+    "Svade": {"supported": false},
+    "Svadu": {"supported": false},
+    "Svbare": {"supported": false},
+    "Svinval": {"supported": false},
+    "Svnapot": {"supported": false},
+    "Svpbmt": {"supported": false},
+    "Svrsw60t59b": {"supported": false},
+    "Svukte": {"supported": false},
+    "Svvptc": {"supported": false}
+  }
+}

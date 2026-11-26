@@ -37,6 +37,7 @@ different kind.
 | gate | what it checks |
 |---|---|
 | 1 | Elaboration and lint. For Top (both instruction-memory modes) and every module class in its hierarchy: elaboration without exceptions or Python warnings, conversion to a netlist (catches combinational cycles and driver conflicts), yosys `check`, and `verilator --lint-only -Wall` (codegen-only codes waived in `gate1_lint/verilator_waivers.toml`, each with a reason). Also checks that every submodule input port is driven by Top, and that only Top declares clock domains. |
+| 2 | Co-simulation against Sail (`gate2_cosim/`). Each program runs on Sail, configured as plain RV32I M-mode (`sail_rv32i.json`, every override commented), until it reaches its `halt` self-loop; the core (Verilator) runs the same image for as many RVFI records, and the traces are compared record by record and field by field: pc, insn, trap, rs1/rs2 address and value, rd address and value, memory masks/address/data, next pc (`compare.py`). Checks: `g2.arch.<test>` (the 39 riscv-arch-test rv32i_m/I tests, unmodified, target env in `gate2_cosim/archtest_env/`), `g2.rand.<profile>.<NNN>` (random programs per profile alu/shift/upper/branch/jump/mem/full, a pure function of `--seed`, profile and index; fast mode runs indices 0-3, full 0-31), `g2.engine.*` (Amaranth simulator and Verilator give identical traces), `g2.selftest.*` (parser checked against a hand-worked program, C disabled in Sail, comparator catches a change in every field). Each co-sim check has `data={"matched", "total", "field"}`. Logs under `<out>/gate2/`; a failing check prints the command that reproduces it (`python -m harness.gate2_cosim rand alu 3`). |
 
 ## Tools
 
@@ -44,6 +45,7 @@ All tools are pinned in `tools/setup_harness_tools.sh` (version and sha256 or co
 and installed into `.tools/`. The harness uses only those copies, never tools on
 `PATH`. The one exception is clang/lld for building RISC-V test programs, which
 comes from the host. Python dependencies are pinned in `requirements.txt`.
+Gate 2 needs `tools/setup_harness_tools.sh cad sail archtest`.
 
 | tool | version |
 |---|---|

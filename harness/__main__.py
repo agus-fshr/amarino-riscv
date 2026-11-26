@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parent.parent
 # Gate number -> module. Each module defines GATE, NAME and run(ctx) -> [Check].
 GATES = {
     1: "harness.gate1_lint",
+    2: "harness.gate2_cosim",
 }
 
 DEFAULT_SEED = 0xA5A5_2026

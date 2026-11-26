@@ -75,3 +75,29 @@ without it `g4.synth.vivado` reports "unavailable".
 outside a board build needs a platform. `common/design.py` provides `StubPlatform`,
 which hands out a plain signal for `uart#0` and refuses any other resource. It does
 not change what the core does.
+
+## Validating the harness: mutation testing
+
+```bash
+python -m harness.mutation            # gates 1-3, fast mode
+python -m harness.mutation --full     # the nightly run
+python -m harness.mutation --mutant alu-sub-as-add --gate 2
+```
+
+`mutation/mutants.toml` lists deliberately broken copies of the core. Each mutant is
+one exact text replacement in a temporary copy of `amarino/`. The runner runs the
+gates on the real core (the baseline) and on each mutant (`--core-dir`). A check
+**kills** a mutant when:
+
+- it passes on the baseline and fails or errors on the mutant, or
+- it is a co-simulation check and the mutant matches the reference for **fewer**
+  retirements than the baseline does. The mutant then goes wrong before the
+  baseline's own first divergence, so a mutant is caught even where the real core
+  already fails later, or
+- it does not exist on the baseline and fails on the mutant, e.g. a new lint finding.
+
+The run is green when every mutant is killed. The exception is a mutant marked
+`equivalent = "<reason>"`: one that the current core cannot distinguish (e.g. SRA vs
+SRL while every shift is by 0). It must survive, and if it is killed the run is red,
+so the note can't go stale. The report (`harness-out/mutation-*/report.md`) shows,
+for each mutant, which gates and checks caught it.

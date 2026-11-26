@@ -61,3 +61,29 @@ jobs:
           path: |
             harness-gate2.json
             harness-out/
+
+  gate3:
+    # Fast subset only (fixed checks, full depth). The full set runs nightly.
+    name: gate 3 (formal, fast)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tools/oss-cad-suite
+            .tools/riscv-formal
+          key: cad-formal-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad formal
+      - run: python -m harness --gate 3 -j 2 --json harness-gate3.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate3-results
+          path: |
+            harness-gate3.json
+            harness-out/

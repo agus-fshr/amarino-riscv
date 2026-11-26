@@ -43,7 +43,11 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install -r harness/requirements.txt
-      - run: sudo apt-get update && sudo apt-get install -y clang lld
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: .tools

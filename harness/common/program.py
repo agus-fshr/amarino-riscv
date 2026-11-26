@@ -4,6 +4,8 @@ Programs are built with the host's clang/lld (the one tool not taken from .tools
 see harness/README.md) for plain RV32I and linked with common/link.ld.
 """
 
+import os
+import re
 import struct
 import subprocess
 import tomllib
@@ -26,8 +28,31 @@ CFLAGS = ["--target=riscv32-unknown-elf", "-march=rv32i", "-mabi=ilp32", "-mno-r
           "-fuse-ld=lld", f"-Wl,-T,{LINK_LD}", "-Wl,--no-relax"]
 
 
+# Expected first-divergence points depend on the exact code clang emits, so the
+# compiler is pinned by major version. $HARNESS_CLANG selects a specific binary
+# (e.g. clang-22 on Ubuntu); a different major version is an ERROR, not a guess.
+CLANG_MAJOR = 22
+
+
 class BuildError(RuntimeError):
     pass
+
+
+_clang = None
+
+
+def clang():
+    global _clang
+    if _clang is None:
+        from harness.common.tools import ToolMissing
+        path = os.environ.get("HARNESS_CLANG") or host_tool("clang")
+        out = subprocess.run([path, "--version"], capture_output=True, text=True).stdout
+        m = re.search(r"clang version (\d+)\.", out)
+        if not m or int(m.group(1)) != CLANG_MAJOR:
+            raise ToolMissing(f"{path} is {out.splitlines()[0] if out else 'unknown'}; the harness needs "
+                              f"clang {CLANG_MAJOR}.x (set HARNESS_CLANG to choose a binary)")
+        _clang = path
+    return _clang
 
 
 def build(sources, out_elf, extra_flags=(), link_ld=None):
@@ -37,7 +62,7 @@ def build(sources, out_elf, extra_flags=(), link_ld=None):
     flags = list(CFLAGS)
     if link_ld is not None:
         flags = [f for f in flags if not f.startswith("-Wl,-T,")] + [f"-Wl,-T,{link_ld}"]
-    cmd = [host_tool("clang"), *flags, *extra_flags, "-o", str(out_elf), *map(str, sources)]
+    cmd = [clang(), *flags, *extra_flags, "-o", str(out_elf), *map(str, sources)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise BuildError(f"{' '.join(cmd)}\n{r.stderr}")

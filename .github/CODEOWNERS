@@ -1,0 +1,10 @@
+# The verification harness, its spec and the agent/CI settings are owned by the
+# repository owner. With branch protection "Require review from Code Owners"
+# enabled on main, no change to these paths can merge without their approval.
+/harness/                       @agus-fshr
+/docs/rvfi.md                   @agus-fshr
+/amarino/rvfi.py                @agus-fshr
+/tools/setup_harness_tools.sh   @agus-fshr
+/.github/                       @agus-fshr
+/.claude/                       @agus-fshr
+/CLAUDE.md                      @agus-fshr

@@ -37,6 +37,9 @@ The top level module is in `amarino/top.py`. Each module for the processor is in
 
 Many modules have testbenches in `tests/`. Run them from the repo root, e.g. `python -m tests.test_decoder`. They run in Amaranth's own simulator, although it would not be hard to automate them and create a more robust testing environment with PyTest and Cocotb. They output `.vcd` files into the current directory (git-ignored), which you can open in [Surfer](https://surfer-project.org/) which we strongly recommend as a waveform viewer since, among other great features, it can interpret signals as RV32 instructions.
 
+## Verification harness
+`harness/` holds the correctness gates the core is judged by: lint, co-simulation against the sail-riscv reference, riscv-formal and benchmarks. A mutation suite checks the harness itself. After `tools/setup_harness_tools.sh`, run `python -m harness` (fast) or `python -m harness --full`. See `harness/README.md` for details, and `CLAUDE.md` for the development workflow.
+
 ## Exploring Block Diagrams
 When you build the top module (or any module, for that matter) with the `do_build=True` option in Amaranth and the platform as any `XilinxPlatform` you'll find the Vivado project file (.xpr) in `build/`. You can open this in Vivado and run all the RTL, Synthesis, Timing Reports, etc... The schematic view is particularly interesing as it will show every connection before being optimized. You'll be able to see every module we coded in Amaranth as a block and then click on it to expand and see how the internal logic is made up.
 

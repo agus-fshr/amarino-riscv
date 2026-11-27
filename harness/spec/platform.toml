@@ -1,0 +1,13 @@
+# The platform the core is judged against. Only humans edit this file.
+
+isa = "rv32i"            # RV32I base ISA, byte-addressed (unprivileged spec 20191213)
+xlen = 32
+
+# Programs are linked so that core word address N holds the word at byte address
+# image_base + 4*N. The reference simulator loads the same ELF at the same addresses.
+image_base = 0x80000000
+
+# The reset PC is implementation-defined (privileged spec, "Reset"). The current core
+# starts fetching at word 1, so programs are linked with ENTRY at image_base + 4 and a
+# one-word pad at image_base. The reference simulator starts at the ELF entry point.
+reset_pc = 0x80000004

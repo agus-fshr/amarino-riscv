@@ -1,0 +1,148 @@
+name: harness
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protected-paths:
+    # Makes any change to the harness, its spec or the agent/CI settings visible:
+    # such a PR fails this job until a maintainer adds the `harness-change` label.
+    # The enforcement is CODEOWNERS review (see .github/CODEOWNERS); this job is
+    # a signal on top of it.
+    name: protected harness paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          changed=$(git diff --name-only "$BASE"...HEAD | grep -E '^(harness/|docs/rvfi\.md$|amarino/rvfi\.py$|tools/setup_harness_tools\.sh$|\.github/|\.claude/|CLAUDE\.md$)' || true)
+          if [ -z "$changed" ]; then echo "no protected paths changed"; exit 0; fi
+          echo "protected paths changed:"; echo "$changed"
+          if [[ ",$LABELS," == *",harness-change,"* ]]; then echo "labelled harness-change"; exit 0; fi
+          echo "::error::This PR changes the verification harness or its settings; it needs owner review and the harness-change label."
+          exit 1
+
+  gate1:
+    name: gate 1 (elaboration + lint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: .tools/oss-cad-suite
+          key: cad-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad
+      - run: python -m harness.selftest
+      - run: python -m harness --gate 1 --json harness-gate1.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate1-results
+          path: |
+            harness-gate1.json
+            harness-out/
+
+  gate2:
+    name: gate 2 (co-simulation, fast)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: tools-cad-sail-archtest-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad sail archtest
+      - run: python -m harness --gate 2 --json harness-gate2.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate2-results
+          path: |
+            harness-gate2.json
+            harness-out/
+
+  gate3:
+    # Fast subset only (fixed checks, full depth). The full set runs nightly.
+    name: gate 3 (formal, fast)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tools/oss-cad-suite
+            .tools/riscv-formal
+          key: cad-formal-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad formal
+      - run: python -m harness --gate 3 -j 2 --json harness-gate3.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate3-results
+          path: |
+            harness-gate3.json
+            harness-out/
+
+  gate4:
+    name: gate 4 (benchmarks + synthesis, report-only)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tools/oss-cad-suite
+            .tools/sail
+            .tools/coremark
+            .tools/riscv-tests
+          key: gate4-tools-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad sail bench
+      # Fast mode (fib + yosys) on PRs; the full set (adds Dhrystone, CoreMark) otherwise.
+      - run: python -m harness --gate 4 ${{ github.event_name == 'pull_request' && '--fast' || '--full' }} --json harness-gate4.json
+      - run: cat harness-out/*/gate4/report.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate4-results
+          path: |
+            harness-gate4.json
+            harness-out/

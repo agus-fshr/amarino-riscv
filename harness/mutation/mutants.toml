@@ -1,0 +1,113 @@
+# Deliberately broken copies of the core. Each mutant replaces one exact piece of
+# text (it must occur exactly once in `file`) in a temporary copy of amarino/.
+# The harness is validated by showing that every mutant is caught by at least one
+# gate (`python -m harness.mutation`).
+#
+# A mutant that cannot be observed on the CURRENT core (because a pre-existing bug
+# makes it behave identically) may carry `equivalent = "<reason>"`. It is then
+# expected to survive, and if it is killed the run is red, so the note can't go stale.
+#
+# These texts match the core as of the harness PRs. When the core changes and a
+# mutant no longer applies, the mutation run reports it (ERROR) and the mutant
+# must be updated. Only humans edit this file.
+
+[[mutant]]
+id = "alu-sub-as-add"
+what = "SUB computes A + B"
+file = "amarino/modules/alu.py"
+old = """                    with m.If((self.functions.func7[5]) & self.flags_in.isALUreg):
+                        m.d.comb += self.rd_bus.rd_data.eq(self.data_buses.A - self.data_buses.B)"""
+new = """                    with m.If((self.functions.func7[5]) & self.flags_in.isALUreg):
+                        m.d.comb += self.rd_bus.rd_data.eq(self.data_buses.A + self.data_buses.B)"""
+
+[[mutant]]
+id = "alu-addi-as-sub"
+what = "ADDI with imm[10] set computes A - imm (func7 check no longer restricted to OP)"
+file = "amarino/modules/alu.py"
+old = "with m.If((self.functions.func7[5]) & self.flags_in.isALUreg):"
+new = "with m.If(self.functions.func7[5]):"
+
+[[mutant]]
+id = "alu-xor-as-or"
+what = "XOR computes A | B"
+file = "amarino/modules/alu.py"
+old = "self.rd_bus.rd_data.eq(self.data_buses.A ^ self.data_buses.B)"
+new = "self.rd_bus.rd_data.eq(self.data_buses.A | self.data_buses.B)"
+
+[[mutant]]
+id = "alu-slt-unsigned"
+what = "SLT/SLTI compare unsigned"
+file = "amarino/modules/alu.py"
+old = "self.rd_bus.rd_data.eq(self.data_buses.A.as_signed() < self.data_buses.B.as_signed())"
+new = "self.rd_bus.rd_data.eq(self.data_buses.A < self.data_buses.B)"
+
+[[mutant]]
+id = "alu-sra-as-srl"
+what = "SRA/SRAI shift logically"
+file = "amarino/modules/alu.py"
+old = "self.rd_bus.rd_data.eq(self.data_buses.A.as_signed() >> self.shamt)"
+new = "self.rd_bus.rd_data.eq(self.data_buses.A >> self.shamt)"
+equivalent = "alu.shamt is never driven (g1.port.alu.shamt), so every shift is by 0 and arithmetic and logical right shifts give the same result"
+
+[[mutant]]
+id = "imm-i-no-sign-extend"
+what = "I-type immediates are zero-extended"
+file = "amarino/modules/immbuilder.py"
+old = "self.imm_data.imm.eq(Cat(self.instr.instr[20:32], self.instr.instr[31].replicate(20))),"
+new = "self.imm_data.imm.eq(Cat(self.instr.instr[20:32], C(0, 20))),"
+
+[[mutant]]
+id = "imm-u-low-bits"
+what = "U-type immediates keep instruction bits [11:0] instead of zeros"
+file = "amarino/modules/immbuilder.py"
+old = "self.imm_data.imm.eq(Cat(C(0, 12), self.instr.instr[12:32])),"
+new = "self.imm_data.imm.eq(Cat(self.instr.instr[0:12], self.instr.instr[12:32])),"
+
+[[mutant]]
+id = "regbank-writes-x0"
+what = "the register file writes x0"
+file = "amarino/modules/regbank.py"
+old = "with m.If((self.we) & (self.reg_addr.rd_addr != 0)):"
+new = "with m.If(self.we):"
+
+[[mutant]]
+id = "hazard-stall-removed"
+what = "no stall for ALU-to-ALU read-after-write hazards"
+file = "amarino/pipeline/pipeline.py"
+old = "with m.Elif(((self.instr_flags_decode.isALUreg"
+new = "with m.Elif(C(0, 1) & ((self.instr_flags_decode.isALUreg"
+
+[[mutant]]
+id = "hazard-stall-rs1-only"
+what = "the hazard stall ignores rs2"
+file = "amarino/pipeline/pipeline.py"
+old = "((self.rd_execute == self.reg_addr_decode.rs1_addr) | (self.rd_execute == self.reg_addr_decode.rs2_addr))"
+new = "((self.rd_execute == self.reg_addr_decode.rs1_addr))"
+
+[[mutant]]
+id = "branch-beq-inverted"
+what = "BEQ resolves taken/not-taken inverted"
+file = "amarino/pipeline/pipeline.py"
+old = "with m.If(self.branch_flags_execute.beq & ~self.alu_flag_z):"
+new = "with m.If(self.branch_flags_execute.beq & self.alu_flag_z):"
+
+[[mutant]]
+id = "branch-beq-no-flush"
+what = "a mispredicted BEQ no longer flushes the decode and execute latches"
+file = "amarino/pipeline/pipeline.py"
+old = "self.decode_mux.eq(1), self.execute_mux.eq(1)]#, self.retire_mux.eq(0)]"
+new = "self.decode_mux.eq(0), self.execute_mux.eq(0)]#, self.retire_mux.eq(0)]"
+
+[[mutant]]
+id = "decode-latch-ignores-stall"
+what = "the decode latch loads every cycle, even while the pipeline stalls"
+file = "amarino/pipeline/decode_latch.py"
+old = "with m.Elif(self.decode_enable):"
+new = "with m.Elif(1):"
+
+[[mutant]]
+id = "writeback-wrong-rd"
+what = "the execute latch passes rd with bit 0 flipped"
+file = "amarino/pipeline/execute_latch.py"
+old = "m.d.sync += self.rd_out.eq(self.rd_in)"
+new = "m.d.sync += self.rd_out.eq(self.rd_in ^ 1)"

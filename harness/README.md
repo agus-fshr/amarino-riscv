@@ -39,6 +39,7 @@ different kind.
 | 1 | Elaboration and lint. For Top (both instruction-memory modes) and every module class in its hierarchy: elaboration without exceptions or Python warnings, conversion to a netlist (catches combinational cycles and driver conflicts), yosys `check`, and `verilator --lint-only -Wall` (codegen-only codes waived in `gate1_lint/verilator_waivers.toml`, each with a reason). Also checks that every submodule input port is driven by Top, and that only Top declares clock domains. |
 | 2 | Co-simulation against Sail (`gate2_cosim/`). Each program runs on Sail, configured as plain RV32I M-mode (`sail_rv32i.json`, every override commented), until it reaches its `halt` self-loop; the core (Verilator) runs the same image for as many RVFI records, and the traces are compared record by record and field by field: pc, insn, trap, rs1/rs2 address and value, rd address and value, memory masks/address/data, next pc (`compare.py`). Checks: `g2.arch.<test>` (the 39 riscv-arch-test rv32i_m/I tests, unmodified, target env in `gate2_cosim/archtest_env/`), `g2.rand.<profile>.<NNN>` (random programs per profile alu/shift/upper/branch/jump/mem/full, a pure function of `--seed`, profile and index; fast mode runs indices 0-3, full 0-31), `g2.engine.*` (Amaranth simulator and Verilator give identical traces), `g2.selftest.*` (parser checked against a hand-worked program, C disabled in Sail, comparator catches a change in every field). Each co-sim check has `data={"matched", "total", "field"}`. Logs under `<out>/gate2/`; a failing check prints the command that reproduces it (`python -m harness.gate2_cosim rand alu 3`). |
 | 3 | Formal verification with riscv-formal + SymbiYosys (`gate3_formal/`). `Top(imem="external")` with an unconstrained instruction word every cycle (`wrapper.sv`), bounded model checks from reset of every RV32I instruction (`g3.insn_<op>_ch0`) and of `reg`, `pc_fwd`, `pc_bwd`, `causal`, `unique`, `liveness`, `ill`, `hang` and `cover` (`checks.cfg`; depths justified in `gate3_formal/DEPTH.md`). sby runs with `--keep-going`, and every violated assertion is its own check `g3.<check>.<assertion>`, so a listed failure of one field cannot hide a new one. Counterexamples (VCD plus a disassembled retirement trace) are kept under `harness-out/<run>/gate3/`. Fast mode runs a fixed subset at full depth; `--full` (all 46 tasks) is for nightly. |
+| 4 | Benchmarks and synthesis, **report-only** (INFO, never red) except `g4.build.<bench>`, which proves each benchmark is valid on the reference simulator. Builds fib (fast), Dhrystone and CoreMark (full) with a freestanding RV32I runtime (`gate4_bench/runtime/`), takes the reference instruction count from Sail (run until `_halt`, result checked in a0), runs the core for that many retirements and reports completed / retired / cycles / CPI and the first retirement where the core's RVFI trace diverges from Sail's. yosys `synth_xilinx` resource estimate of the FPGA build (no timing); Vivado OOC timing/utilization for the Arty A7-100 only if `$VIVADO` points to an install. Report in `harness-out/<run>/gate4/report.md`. |
 
 ## Tools
 
@@ -54,7 +55,19 @@ Gate 2 needs `tools/setup_harness_tools.sh cad sail archtest`.
 | sail-riscv (`sail_riscv_sim`) | 0.16 |
 | riscv-formal | c992aa6 |
 | riscv-arch-test | 3.9.1 |
+| CoreMark (eembc/coremark, gate 4) | 1f483d5 |
+| Dhrystone (riscv-software-src/riscv-tests `benchmarks/dhrystone`, gate 4) | 1b3f8bd |
 | Amaranth | 0.5.10 |
+
+Gate 4 notes: `tools/setup_harness_tools.sh bench` fetches the benchmark sources;
+only the port files in `gate4_bench/` live in this repo. Sail runs with its default
+RV32 configuration (which also enables extensions such as M and C); the benchmarks are
+built for plain RV32I, so the instruction count is that of an RV32I program, with
+`*`, `/`, `%` done by the runtime's `__mulsi3`/`__divsi3`/... libcalls. Neither
+Dhrystone nor CoreMark can read a timer on this core, so their own timers are stubbed
+(documented in the port files) and no DMIPS/CoreMark score is reported: the
+measurement is retired instructions and cycles. Vivado is not pinned or downloaded;
+without it `g4.synth.vivado` reports "unavailable".
 
 ## The stub platform
 

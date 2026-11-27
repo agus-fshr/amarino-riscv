@@ -87,3 +87,38 @@ jobs:
           path: |
             harness-gate3.json
             harness-out/
+
+  gate4:
+    name: gate 4 (benchmarks + synthesis, report-only)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tools/oss-cad-suite
+            .tools/sail
+            .tools/coremark
+            .tools/riscv-tests
+          key: gate4-tools-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad sail bench
+      # Fast mode (fib + yosys) on PRs; the full set (adds Dhrystone, CoreMark) otherwise.
+      - run: python -m harness --gate 4 ${{ github.event_name == 'pull_request' && '--fast' || '--full' }} --json harness-gate4.json
+      - run: cat harness-out/*/gate4/report.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate4-results
+          path: |
+            harness-gate4.json
+            harness-out/

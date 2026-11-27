@@ -17,6 +17,7 @@ REPO = Path(__file__).resolve().parent.parent
 GATES = {
     1: "harness.gate1_lint",
     2: "harness.gate2_cosim",
+    3: "harness.gate3_formal",
 }
 
 DEFAULT_SEED = 0xA5A5_2026

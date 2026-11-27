@@ -1,0 +1,35 @@
+name: harness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate1:
+    name: gate 1 (elaboration + lint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: .tools/oss-cad-suite
+          key: cad-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh cad
+      - run: python -m harness.selftest
+      - run: python -m harness --gate 1 --json harness-gate1.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate1-results
+          path: |
+            harness-gate1.json
+            harness-out/

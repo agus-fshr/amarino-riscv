@@ -1,0 +1,15 @@
+# Checks known to fail on the current core. One line each: check-id = "reason".
+# A listed check that passes (XPASS) or no longer exists (STALE) turns the run red,
+# so this list cannot hide a fix or a removed check. Only humans edit this file.
+
+# ---- gate 1: elaboration + lint ----------------------------------------------
+"g1.port.alu.shamt" = "top.py never drives alu.shamt, so every shift shifts by 0"
+"g1.port.opbuilder.muxes.muxA" = "opBuilder declares a muxes input that top.py never drives (opBuilder never reads it)"
+"g1.port.opbuilder.muxes.muxB" = "opBuilder declares a muxes input that top.py never drives (opBuilder never reads it)"
+"g1.domain.alu.sync" = "alu.py declares its own sync ClockDomain; Amaranth renames it alu_sync (unused today, since ALU is purely combinational)"
+"g1.domain.decoder.sync" = "decoder.py declares its own sync ClockDomain; Amaranth renames it decoder_sync (unused today, since Decoder is purely combinational)"
+"g1.warn.top-internal.DeprecationWarning@amarino/modules/fetch.py" = "fetch.py uses amaranth.hdl.Memory, deprecated in favour of amaranth.lib.memory.Memory"
+"g1.warn.Fetch.DeprecationWarning@amarino/modules/fetch.py" = "fetch.py uses amaranth.hdl.Memory, deprecated in favour of amaranth.lib.memory.Memory"
+"g1.warn.top-internal.DeprecationWarning@amarino/modules/uart.py" = "uart.py uses Signal(reset=), deprecated in favour of init="
+"g1.warn.top-external.DeprecationWarning@amarino/modules/uart.py" = "uart.py uses Signal(reset=), deprecated in favour of init="
+"g1.warn.UART32.DeprecationWarning@amarino/modules/uart.py" = "uart.py uses Signal(reset=), deprecated in favour of init="

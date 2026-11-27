@@ -1,0 +1,73 @@
+name: harness-nightly
+
+# The full gates (the judge of correctness) and the mutation suite (the judge of
+# the harness). Too slow for every PR; runs nightly and on demand.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full:
+    name: all gates, full mode
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: tools-all-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh all
+      - run: python -m harness.selftest
+      - run: python -m harness --full -j 4 --json harness-full.json
+      - run: cat harness-out/*/gate4/report.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-results
+          path: |
+            harness-full.json
+            harness-out/
+
+  mutation:
+    name: mutation suite (gates 1-3, full mode)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r harness/requirements.txt
+      - name: clang 22 (pinned major version, see harness/common/program.py)
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          echo "HARNESS_CLANG=/usr/bin/clang-22" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: tools-all-${{ hashFiles('tools/setup_harness_tools.sh') }}
+      - run: tools/setup_harness_tools.sh all
+      - run: python -m harness.mutation --full -j 4
+      - run: cat harness-out/mutation-*/report.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-results
+          path: harness-out/mutation-*/report.md

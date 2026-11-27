@@ -2,6 +2,7 @@ name: harness
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -10,6 +11,29 @@ permissions:
   contents: read
 
 jobs:
+  protected-paths:
+    # Makes any change to the harness, its spec or the agent/CI settings visible:
+    # such a PR fails this job until a maintainer adds the `harness-change` label.
+    # The enforcement is CODEOWNERS review (see .github/CODEOWNERS); this job is
+    # a signal on top of it.
+    name: protected harness paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          changed=$(git diff --name-only "$BASE"...HEAD | grep -E '^(harness/|docs/rvfi\.md$|amarino/rvfi\.py$|tools/setup_harness_tools\.sh$|\.github/|\.claude/|CLAUDE\.md$)' || true)
+          if [ -z "$changed" ]; then echo "no protected paths changed"; exit 0; fi
+          echo "protected paths changed:"; echo "$changed"
+          if [[ ",$LABELS," == *",harness-change,"* ]]; then echo "labelled harness-change"; exit 0; fi
+          echo "::error::This PR changes the verification harness or its settings; it needs owner review and the harness-change label."
+          exit 1
+
   gate1:
     name: gate 1 (elaboration + lint)
     runs-on: ubuntu-24.04
